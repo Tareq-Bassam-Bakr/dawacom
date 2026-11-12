@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "317354311972",
+    "project_id": "dawacom-39565",
+    "storage_bucket": "dawacom-39565.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:317354311972:android:f8fd900fc38e5a0bad73b1",
+        "android_client_info": {
+          "package_name": "com.dawacom.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCXCzveIlFXgA3W_0hTbjxR6UOUaOlERcw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:317354311972:android:c82639276a48a996ad73b1",
+        "android_client_info": {
+          "package_name": "com.example.flutter_application_7"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCXCzveIlFXgA3W_0hTbjxR6UOUaOlERcw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,0 +1,72 @@
+rules_version = '2';
+
+// قواعد أمان Firestore لتطبيق دواكم.
+// النشر: firebase deploy --only firestore:rules
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function isPharmacist() {
+      return signedIn()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'pharmacist';
+    }
+
+    // ---------- المستخدمون ----------
+    match /users/{uid} {
+      // أي مستخدم مسجّل يمكنه قراءة الأسماء (لعرض اسم المتبرع/المحتاج).
+      allow read: if signedIn();
+      allow create: if isSelf(uid)
+        && request.resource.data.role in ['user', 'pharmacist'];
+      // لا يمكن تغيير الدور أو البريد بعد الإنشاء.
+      allow update: if isSelf(uid)
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.email == resource.data.email;
+      allow delete: if false;
+    }
+
+    // ---------- الأدوية ----------
+    match /medicines/{id} {
+      allow read: if signedIn();
+
+      // المتبرع ينشئ الدواء باسمه وبحالة "قيد التدقيق" فقط.
+      allow create: if signedIn()
+        && request.resource.data.donorId == request.auth.uid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.quantity is int
+        && request.resource.data.quantity > 0;
+
+      // الصيدلاني: يقبل أو يرفض الأدوية قيد التدقيق.
+      // المحتاج: يحجز دواءً متاحاً باسمه.
+      // المتبرع: يعدّل دواءه ما دام قيد التدقيق.
+      allow update: if
+        (isPharmacist()
+          && resource.data.status == 'pending'
+          && request.resource.data.status in ['approved', 'rejected'])
+        ||
+        (signedIn()
+          && resource.data.status == 'approved'
+          && request.resource.data.status == 'requested'
+          && request.resource.data.recipientId == request.auth.uid
+          && resource.data.donorId != request.auth.uid)
+        ||
+        (signedIn()
+          && resource.data.donorId == request.auth.uid
+          && resource.data.status == 'pending'
+          && request.resource.data.status == 'pending');
+
+      // المتبرع يحذف دواءه ما دام قيد التدقيق.
+      allow delete: if signedIn()
+        && resource.data.donorId == request.auth.uid
+        && resource.data.status == 'pending';
+    }
+  }
+}

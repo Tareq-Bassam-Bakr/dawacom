@@ -1,0 +1,24 @@
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "dawacom-39565",
+          "appId": "1:317354311972:android:f8fd900fc38e5a0bad73b1",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "dawacom-39565",
+          "configurations": {
+            "android": "1:317354311972:android:f8fd900fc38e5a0bad73b1"
+          }
+        }
+      }
+    }
+  },
+  "firestore": {
+    "rules": "firestore.rules"
+  }
+}
