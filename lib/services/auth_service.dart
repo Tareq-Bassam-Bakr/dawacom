@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 
 import '../models/app_user.dart';
 import 'user_service.dart';
@@ -14,6 +15,10 @@ class AuthService {
 
   User? get currentUser => _auth.currentUser;
 
+  /// يكون true أثناء إنشاء حساب جديد، كي لا تُنشئ بوابة الدخول ملفاً
+  /// احتياطياً بدور "مستخدم" قبل أن يُحفظ الملف الحقيقي بالدور المختار.
+  final ValueNotifier<bool> registering = ValueNotifier(false);
+
   Future<void> signIn({required String email, required String password}) =>
       _auth.signInWithEmailAndPassword(email: email.trim(), password: password);
 
@@ -26,22 +31,42 @@ class AuthService {
     required String city,
     required UserRole role,
   }) async {
-    final cred = await _auth.createUserWithEmailAndPassword(
-      email: email.trim(),
-      password: password,
-    );
-    final user = cred.user!;
-    await user.updateDisplayName(name.trim());
-    await UserService.instance.create(
-      AppUser(
-        uid: user.uid,
-        name: name,
-        email: email,
-        phone: phone,
-        city: city,
-        role: role,
-      ),
-    );
+    registering.value = true;
+    try {
+      final cred = await _auth.createUserWithEmailAndPassword(
+        email: email.trim(),
+        password: password,
+      );
+      final user = cred.user!;
+      try {
+        await UserService.instance.create(
+          AppUser(
+            uid: user.uid,
+            name: name,
+            // نستخدم البريد كما يحفظه Firebase (بأحرف صغيرة) ليطابق قواعد الأمان.
+            email: user.email ?? email.trim(),
+            phone: phone,
+            city: city,
+            role: role,
+          ),
+        );
+      } catch (_) {
+        // حذف الحساب الناقص حتى يستطيع المستخدم إعادة المحاولة بالبريد نفسه.
+        try {
+          await user.delete();
+        } catch (_) {
+          await _auth.signOut();
+        }
+        rethrow;
+      }
+      try {
+        await user.updateDisplayName(name.trim());
+      } catch (_) {
+        // الاسم محفوظ في Firestore، وفشل تحديثه هنا لا يؤثر على الحساب.
+      }
+    } finally {
+      registering.value = false;
+    }
   }
 
   Future<void> sendPasswordReset(String email) =>

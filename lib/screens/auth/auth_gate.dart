@@ -48,7 +48,15 @@ class _ProfileGate extends StatelessWidget {
           return const SplashScreen();
         }
         final appUser = snapshot.data;
-        if (appUser == null) return _MissingProfile(user: user);
+        if (appUser == null) {
+          // أثناء إنشاء الحساب ننتظر حفظ الملف الحقيقي بدل إنشاء ملف احتياطي.
+          return ValueListenableBuilder<bool>(
+            valueListenable: AuthService.instance.registering,
+            builder: (_, registering, _) => registering
+                ? const SplashScreen(message: 'جاري إنشاء حسابك...')
+                : _MissingProfile(user: user),
+          );
+        }
 
         return appUser.isPharmacist
             ? PharmacistHome(user: appUser)
