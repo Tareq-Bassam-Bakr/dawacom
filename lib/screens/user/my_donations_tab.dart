@@ -31,7 +31,7 @@ class MyDonationsTab extends StatelessWidget {
             icon: Icons.volunteer_activism_outlined,
             title: 'لم تتبرع بأي دواء بعد',
             subtitle:
-                'اضغط "تبرع الآن" لإضافة دواء فائض لديك، وسيراجعه الصيدلاني قبل عرضه للمحتاجين.',
+                'اضغط "تبرع الآن" لإضافة دواء فائض لديك، وسلّمه لصيدلية في محافظتك لتراجعه قبل عرضه للمحتاجين.',
           );
         }
 
@@ -59,7 +59,9 @@ class MyDonationsTab extends StatelessWidget {
     final (IconData icon, String text, Color color) = switch (m.status) {
       MedicineStatus.pending => (
         Icons.hourglass_top_rounded,
-        'بانتظار مراجعة الصيدلاني للتحقق من الدواء',
+        m.pharmacy.isEmpty
+            ? 'بانتظار مراجعة الصيدلي للتحقق من الدواء'
+            : 'سلّمه لـ ${m.pharmacy} ليفحصه الصيدلي',
         AppColors.warning,
       ),
       MedicineStatus.approved => (
@@ -74,7 +76,10 @@ class MyDonationsTab extends StatelessWidget {
       ),
       MedicineStatus.rejected => (
         Icons.info_outline_rounded,
-        'لم يُقبل الدواء، قد يكون قريب الانتهاء أو غير مطابق للشروط',
+        m.rejectionReason.isEmpty
+            ? 'لم يُقبل الدواء، قد يكون قريب الانتهاء أو غير مطابق للشروط'
+            : 'لم يُقبل: ${m.rejectionReason}'
+                  '${m.rejectionNote.isEmpty ? '' : ' (${m.rejectionNote})'}',
         AppColors.danger,
       ),
     };

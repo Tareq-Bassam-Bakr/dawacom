@@ -9,7 +9,9 @@ import '../../core/utils.dart';
 import '../../models/app_user.dart';
 import '../../services/image_service.dart';
 import '../../services/medicine_service.dart';
+import '../../services/user_service.dart';
 import '../../widgets/common.dart';
+import '../../widgets/pharmacy_card.dart';
 
 /// شاشة إضافة تبرع دواء جديد.
 class AddMedicineScreen extends StatefulWidget {
@@ -24,7 +26,6 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
   final _formKey = GlobalKey<FormState>();
   final _name = TextEditingController();
   final _quantity = TextEditingController(text: '1');
-  final _pharmacy = TextEditingController();
   final _notes = TextEditingController();
   final _expiryField = TextEditingController();
 
@@ -33,6 +34,7 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
       ? widget.user.city
       : AppConstants.cities.first;
   DateTime? _expiry;
+  AppUser? _pharmacy;
   Uint8List? _image;
   bool _loading = false;
 
@@ -40,7 +42,6 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
   void dispose() {
     _name.dispose();
     _quantity.dispose();
-    _pharmacy.dispose();
     _notes.dispose();
     _expiryField.dispose();
     super.dispose();
@@ -141,9 +142,14 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
     if (_daysToExpiry! < AppConstants.minDaysToExpiry) {
       AppSnack.show(
         context,
-        'لا يمكن التبرع بدواء تبقى على انتهائه أقل من ${AppConstants.minDaysToExpiry} يوماً',
+        'لا يمكن التبرع بدواء تبقى على انتهائه أقل من 6 أشهر',
         error: true,
       );
+      return;
+    }
+    final pharmacy = _pharmacy;
+    if (pharmacy == null) {
+      AppSnack.show(context, 'اختر الصيدلية التي ستسلّمها الدواء', error: true);
       return;
     }
 
@@ -155,14 +161,16 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
         category: _category,
         quantity: int.parse(_quantity.text.trim()),
         expiryDate: expiry,
-        pharmacy: _pharmacy.text,
-        city: _city,
+        pharmacy: pharmacy,
         notes: _notes.text,
         imageBytes: _image,
       );
       if (!mounted) return;
       Navigator.pop(context);
-      AppSnack.success(context, 'تم إرسال تبرعك، سيراجعه الصيدلاني قريباً');
+      AppSnack.success(
+        context,
+        'تم إرسال تبرعك، سلّم الدواء لـ ${pharmacy.pharmacyLabel} لتراجعه',
+      );
     } catch (e) {
       if (mounted) AppSnack.error(context, e);
     } finally {
@@ -173,10 +181,6 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
   @override
   Widget build(BuildContext context) {
     final days = _daysToExpiry;
-    final nearExpiry =
-        days != null &&
-        days >= AppConstants.minDaysToExpiry &&
-        days <= AppConstants.nearExpiryDays;
     final tooClose = days != null && days < AppConstants.minDaysToExpiry;
 
     return Scaffold(
@@ -276,20 +280,12 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
                   icon: Icons.block_rounded,
                   color: AppColors.danger,
                   text:
-                      'يتبقى ${AppFormats.days(days)} فقط على انتهاء الصلاحية. لا نقبل أدوية تبقى على انتهائها أقل من ${AppConstants.minDaysToExpiry} يوماً.',
-                ),
-              ] else if (nearExpiry) ...[
-                const SizedBox(height: 10),
-                InfoBanner(
-                  icon: Icons.warning_amber_rounded,
-                  color: AppColors.warning,
-                  text:
-                      'الصلاحية قريبة من الانتهاء (${AppFormats.days(days)}). قد يرفض الصيدلاني الدواء إن لم يتوفر وقت كافٍ لاستخدامه.',
+                      'يتبقى ${AppFormats.days(days)} فقط على انتهاء الصلاحية. نقبل الأدوية التي يتبقى على انتهائها 6 أشهر على الأقل، حفاظاً على سلامة المحتاج.',
                 ),
               ],
               const SizedBox(height: 20),
 
-              const SectionTitle('مكان الاستلام'),
+              const SectionTitle('الصيدلية التي ستسلّمها الدواء'),
               DropdownButtonFormField<String>(
                 initialValue: _city,
                 decoration: const InputDecoration(
@@ -299,21 +295,19 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
                 items: AppConstants.cities
                     .map((c) => DropdownMenuItem(value: c, child: Text(c)))
                     .toList(),
-                onChanged: (v) => setState(() => _city = v ?? _city),
+                onChanged: (v) => setState(() {
+                  _city = v ?? _city;
+                  _pharmacy = null;
+                }),
               ),
-              const SizedBox(height: 14),
-              TextFormField(
-                controller: _pharmacy,
-                textInputAction: TextInputAction.next,
-                decoration: const InputDecoration(
-                  labelText: 'اسم الصيدلية أو مكان الاستلام',
-                  hintText: 'مثال: صيدلية الشفاء - شارع بغداد',
-                  prefixIcon: Icon(Icons.store_mall_directory_outlined),
-                ),
-                validator: (v) =>
-                    Validators.required(v, 'يرجى إدخال مكان الاستلام'),
+              const SizedBox(height: 12),
+              _PharmacyPicker(
+                city: _city,
+                selected: _pharmacy,
+                onSelected: (p) => setState(() => _pharmacy = p),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 20),
+              const SectionTitle('ملاحظات'),
               TextFormField(
                 controller: _notes,
                 maxLines: 3,
@@ -333,7 +327,7 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
               const InfoBanner(
                 icon: Icons.verified_outlined,
                 text:
-                    'سيراجع صيدلاني مدقّق تبرعك للتحقق من سلامة الدواء قبل عرضه للمحتاجين.',
+                    'سلّم الدواء للصيدلية التي اخترتها. سيفحصه الصيدلي هناك ثم يعرضه للمحتاجين ويسلّمه لهم.',
               ),
               const SizedBox(height: 20),
               PrimaryButton(
@@ -405,7 +399,7 @@ class _ImagePicker extends StatelessWidget {
         ),
         const SizedBox(height: 2),
         const Text(
-          'صورة واضحة للعلبة وتاريخ الصلاحية تساعد الصيدلاني على التحقق',
+          'صورة واضحة للعلبة وتاريخ الصلاحية تساعد الصيدلي على التحقق',
           textAlign: TextAlign.center,
           style: TextStyle(color: AppColors.textMuted, fontSize: 12),
         ),
@@ -445,6 +439,67 @@ class _ImagePicker extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// قائمة صيدليات المحافظة ليختار المتبرع منها.
+class _PharmacyPicker extends StatelessWidget {
+  const _PharmacyPicker({
+    required this.city,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final String city;
+  final AppUser? selected;
+  final ValueChanged<AppUser> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<AppUser>>(
+      stream: UserService.instance.pharmaciesIn(city),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return InfoBanner(
+            icon: Icons.cloud_off_rounded,
+            color: AppColors.danger,
+            text: AppSnack.messageOf(snapshot.error!),
+          );
+        }
+        if (!snapshot.hasData) {
+          return const Padding(
+            padding: EdgeInsets.all(16),
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+        final list = snapshot.data!;
+        if (list.isEmpty) {
+          return InfoBanner(
+            icon: Icons.store_mall_directory_outlined,
+            color: AppColors.warning,
+            text:
+                'لا توجد صيدلية مشاركة في $city بعد، لذلك لا يمكن التبرع فيها حالياً. اختر محافظة أخرى قريبة منك.',
+          );
+        }
+        return Column(
+          children: [
+            for (final p in list) ...[
+              PharmacyCard.fromUser(
+                p,
+                selected: selected?.uid == p.uid,
+                onTap: () => onSelected(p),
+              ),
+              const SizedBox(height: 8),
+            ],
+            if (list.any((p) => !p.verified))
+              const Text(
+                'الصيدلية "قيد التوثيق" تستقبل تبرعك، لكنها لا تراجعه قبل أن توثّقها إدارة المنصة.',
+                style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+              ),
+          ],
+        );
+      },
     );
   }
 }

@@ -67,13 +67,19 @@ class MyRequestsTab extends StatelessWidget {
                       ),
                     ],
                   ),
-                  if (m.requestedAt != null) ...[
+                  if (m.status == MedicineStatus.requested &&
+                      m.reservationDeadline != null) ...[
                     const SizedBox(height: 4),
                     Text(
-                      'تم الحجز ${AppFormats.timeAgo(m.requestedAt)}',
-                      style: const TextStyle(
+                      m.isReservationOverdue
+                          ? 'تجاوزت مهلة الاستلام، قد تلغي الصيدلية الحجز'
+                          : 'استلمه قبل ${AppFormats.date(m.reservationDeadline!)} • حُجز ${AppFormats.timeAgo(m.requestedAt)}',
+                      style: TextStyle(
                         fontSize: 11.5,
-                        color: AppColors.textMuted,
+                        fontWeight: FontWeight.w600,
+                        color: m.isReservationOverdue
+                            ? AppColors.danger
+                            : AppColors.textMuted,
                       ),
                     ),
                   ],

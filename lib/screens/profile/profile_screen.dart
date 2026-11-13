@@ -4,7 +4,6 @@ import '../../core/app_theme.dart';
 import '../../core/constants.dart';
 import '../../core/utils.dart';
 import '../../models/app_user.dart';
-import '../../models/medicine.dart';
 import '../../services/auth_service.dart';
 import '../../services/medicine_service.dart';
 import '../../services/user_service.dart';
@@ -37,6 +36,10 @@ class _ProfileViewState extends State<ProfileView> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _name;
   late final TextEditingController _phone;
+  late final TextEditingController _pharmacyName;
+  late final TextEditingController _pharmacyAddress;
+  late final TextEditingController _pharmacyHours;
+  late final TextEditingController _license;
   late String _city;
   bool _saving = false;
 
@@ -45,6 +48,10 @@ class _ProfileViewState extends State<ProfileView> {
     super.initState();
     _name = TextEditingController(text: widget.user.name);
     _phone = TextEditingController(text: widget.user.phone);
+    _pharmacyName = TextEditingController(text: widget.user.pharmacyName);
+    _pharmacyAddress = TextEditingController(text: widget.user.pharmacyAddress);
+    _pharmacyHours = TextEditingController(text: widget.user.pharmacyHours);
+    _license = TextEditingController(text: widget.user.licenseNumber);
     _city = AppConstants.cities.contains(widget.user.city)
         ? widget.user.city
         : AppConstants.cities.first;
@@ -64,13 +71,26 @@ class _ProfileViewState extends State<ProfileView> {
   void dispose() {
     _name.dispose();
     _phone.dispose();
+    _pharmacyName.dispose();
+    _pharmacyAddress.dispose();
+    _pharmacyHours.dispose();
+    _license.dispose();
     super.dispose();
   }
 
-  bool get _dirty =>
-      _name.text.trim() != widget.user.name.trim() ||
-      _phone.text.trim() != widget.user.phone.trim() ||
-      _city != widget.user.city;
+  bool get _isPharmacist => widget.user.isPharmacist;
+
+  bool get _dirty {
+    final u = widget.user;
+    return _name.text.trim() != u.name.trim() ||
+        _phone.text.trim() != u.phone.trim() ||
+        _city != u.city ||
+        (_isPharmacist &&
+            (_pharmacyName.text.trim() != u.pharmacyName.trim() ||
+                _pharmacyAddress.text.trim() != u.pharmacyAddress.trim() ||
+                _pharmacyHours.text.trim() != u.pharmacyHours.trim() ||
+                _license.text.trim() != u.licenseNumber.trim()));
+  }
 
   Future<void> _save() async {
     FocusScope.of(context).unfocus();
@@ -82,6 +102,12 @@ class _ProfileViewState extends State<ProfileView> {
         name: _name.text,
         phone: _phone.text,
         city: _city,
+        licenseNumber: _isPharmacist && !widget.user.verified
+            ? _license.text
+            : null,
+        pharmacyName: _isPharmacist ? _pharmacyName.text : null,
+        pharmacyAddress: _isPharmacist ? _pharmacyAddress.text : null,
+        pharmacyHours: _isPharmacist ? _pharmacyHours.text : null,
       );
       if (mounted) AppSnack.success(context, 'تم حفظ بياناتك بنجاح');
     } catch (e) {
@@ -104,6 +130,60 @@ class _ProfileViewState extends State<ProfileView> {
     Navigator.of(context).popUntil((r) => r.isFirst);
     await AuthService.instance.signOut();
   }
+
+  List<Widget> _pharmacyFields(AppUser user) => [
+    const SizedBox(height: 24),
+    const SectionTitle('بيانات الصيدلية'),
+    InfoBanner(
+      icon: user.verified
+          ? Icons.verified_rounded
+          : Icons.hourglass_top_rounded,
+      color: user.verified ? AppColors.success : AppColors.warning,
+      text: user.verified
+          ? 'صيدليتك موثّقة، وتظهر للمتبرعين والمحتاجين بشارة "موثّقة".'
+          : 'صيدليتك قيد التوثيق. تأكد أن رقم الترخيص صحيح، فستتحقق منه إدارة المنصة قبل تفعيل القبول والرفض.',
+    ),
+    const SizedBox(height: 14),
+    TextFormField(
+      controller: _pharmacyName,
+      decoration: const InputDecoration(
+        labelText: 'اسم الصيدلية',
+        prefixIcon: Icon(Icons.local_pharmacy_outlined),
+      ),
+      validator: (v) => Validators.required(v, 'يرجى إدخال اسم الصيدلية'),
+    ),
+    const SizedBox(height: 14),
+    TextFormField(
+      controller: _pharmacyAddress,
+      decoration: const InputDecoration(
+        labelText: 'العنوان',
+        prefixIcon: Icon(Icons.place_outlined),
+      ),
+      validator: (v) => Validators.required(v, 'يرجى إدخال عنوان الصيدلية'),
+    ),
+    const SizedBox(height: 14),
+    TextFormField(
+      controller: _pharmacyHours,
+      decoration: const InputDecoration(
+        labelText: 'ساعات الدوام (اختياري)',
+        prefixIcon: Icon(Icons.schedule_rounded),
+      ),
+    ),
+    const SizedBox(height: 14),
+    TextFormField(
+      controller: _license,
+      enabled: !user.verified,
+      textDirection: TextDirection.ltr,
+      decoration: InputDecoration(
+        labelText: 'رقم ترخيص مزاولة المهنة',
+        helperText: user.verified
+            ? 'لا يمكن تغييره بعد التوثيق'
+            : 'تتحقق منه إدارة المنصة',
+        prefixIcon: const Icon(Icons.badge_outlined),
+      ),
+      validator: (v) => Validators.required(v, 'يرجى إدخال رقم الترخيص'),
+    ),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -149,12 +229,16 @@ class _ProfileViewState extends State<ProfileView> {
                 controller: _phone,
                 keyboardType: TextInputType.phone,
                 textDirection: TextDirection.ltr,
-                decoration: const InputDecoration(
-                  labelText: 'رقم الهاتف',
-                  hintText: '09xxxxxxxx',
-                  prefixIcon: Icon(Icons.phone_outlined),
+                decoration: InputDecoration(
+                  labelText: _isPharmacist ? 'هاتف الصيدلية' : 'رقم الهاتف',
+                  hintText: _isPharmacist
+                      ? '011xxxxxxx أو 09xxxxxxxx'
+                      : '09xxxxxxxx',
+                  prefixIcon: const Icon(Icons.phone_outlined),
                 ),
-                validator: Validators.phone,
+                validator: _isPharmacist
+                    ? Validators.anyPhone
+                    : Validators.phone,
               ),
               const SizedBox(height: 14),
               DropdownButtonFormField<String>(
@@ -168,6 +252,7 @@ class _ProfileViewState extends State<ProfileView> {
                     .toList(),
                 onChanged: (v) => setState(() => _city = v ?? _city),
               ),
+              if (_isPharmacist) ..._pharmacyFields(user),
               const SizedBox(height: 20),
               PrimaryButton(
                 label: 'حفظ التعديلات',
@@ -294,11 +379,17 @@ class _Stats extends StatelessWidget {
   Widget build(BuildContext context) {
     final service = MedicineService.instance;
     if (user.isPharmacist) {
-      return _StatCard(
-        icon: Icons.pending_actions_rounded,
-        label: 'أدوية بانتظار تدقيقك',
-        future: service.countWhere('status', MedicineStatus.pending.value),
-        color: AppColors.warning,
+      return Row(
+        children: [
+          Expanded(
+            child: _StatCard(
+              icon: Icons.local_pharmacy_rounded,
+              label: 'تبرعات صيدليتي',
+              future: service.countWhere('pharmacyId', user.uid),
+              color: AppColors.primary,
+            ),
+          ),
+        ],
       );
     }
     return Row(

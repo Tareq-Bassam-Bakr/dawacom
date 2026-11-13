@@ -20,10 +20,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _email = TextEditingController();
   final _phone = TextEditingController();
   final _password = TextEditingController();
+  final _pharmacyName = TextEditingController();
+  final _pharmacyAddress = TextEditingController();
+  final _pharmacyHours = TextEditingController();
+  final _license = TextEditingController();
   String _city = AppConstants.cities.first;
   UserRole _role = UserRole.user;
   bool _obscure = true;
   bool _loading = false;
+
+  bool get _isPharmacist => _role == UserRole.pharmacist;
 
   @override
   void dispose() {
@@ -31,6 +37,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _email.dispose();
     _phone.dispose();
     _password.dispose();
+    _pharmacyName.dispose();
+    _pharmacyAddress.dispose();
+    _pharmacyHours.dispose();
+    _license.dispose();
     super.dispose();
   }
 
@@ -46,6 +56,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
         phone: _phone.text,
         city: _city,
         role: _role,
+        licenseNumber: _license.text,
+        pharmacyName: _pharmacyName.text,
+        pharmacyAddress: _pharmacyAddress.text,
+        pharmacyHours: _pharmacyHours.text,
       );
       if (!mounted) return;
       // العودة إلى الجذر؛ AuthGate سيعرض الواجهة المناسبة للحساب الجديد.
@@ -113,7 +127,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ButtonSegment(
                           value: UserRole.pharmacist,
                           icon: Icon(Icons.local_pharmacy_rounded),
-                          label: Text('صيدلاني'),
+                          label: Text('صيدلي'),
                         ),
                       ],
                       selected: {_role},
@@ -125,7 +139,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       const InfoBanner(
                         icon: Icons.verified_user_outlined,
                         text:
-                            'حساب الصيدلاني مخصص لتدقيق التبرعات والتحقق من سلامة الأدوية قبل عرضها.',
+                            'حساب الصيدلي يمثّل صيدليتك، ويستقبل التبرعات ويراجعها ويسلّمها للمحتاجين. يحتاج توثيقاً من إدارة المنصة برقم ترخيصك قبل أن تستطيع قبول الأدوية.',
                       ),
                     ],
                     const SizedBox(height: 20),
@@ -161,19 +175,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       textInputAction: TextInputAction.next,
                       textDirection: TextDirection.ltr,
                       autofillHints: const [AutofillHints.telephoneNumber],
-                      decoration: const InputDecoration(
-                        labelText: 'رقم الهاتف',
-                        hintText: '09xxxxxxxx',
-                        prefixIcon: Icon(Icons.phone_outlined),
+                      decoration: InputDecoration(
+                        labelText: _isPharmacist
+                            ? 'هاتف الصيدلية'
+                            : 'رقم الهاتف',
+                        hintText: _isPharmacist
+                            ? '011xxxxxxx أو 09xxxxxxxx'
+                            : '09xxxxxxxx',
+                        prefixIcon: const Icon(Icons.phone_outlined),
                       ),
-                      validator: Validators.phone,
+                      validator: _isPharmacist
+                          ? Validators.anyPhone
+                          : Validators.phone,
                     ),
                     const SizedBox(height: 16),
                     DropdownButtonFormField<String>(
                       initialValue: _city,
-                      decoration: const InputDecoration(
-                        labelText: 'المحافظة',
-                        prefixIcon: Icon(Icons.location_city_rounded),
+                      decoration: InputDecoration(
+                        labelText: _isPharmacist
+                            ? 'محافظة الصيدلية'
+                            : 'المحافظة',
+                        prefixIcon: const Icon(Icons.location_city_rounded),
                       ),
                       items: AppConstants.cities
                           .map(
@@ -182,6 +204,57 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           .toList(),
                       onChanged: (v) => setState(() => _city = v ?? _city),
                     ),
+                    if (_isPharmacist) ...[
+                      const SizedBox(height: 24),
+                      const _FieldLabel('بيانات الصيدلية'),
+                      TextFormField(
+                        controller: _pharmacyName,
+                        textInputAction: TextInputAction.next,
+                        decoration: const InputDecoration(
+                          labelText: 'اسم الصيدلية',
+                          hintText: 'مثال: صيدلية الشفاء',
+                          prefixIcon: Icon(Icons.local_pharmacy_outlined),
+                        ),
+                        validator: (v) =>
+                            Validators.required(v, 'يرجى إدخال اسم الصيدلية'),
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _pharmacyAddress,
+                        textInputAction: TextInputAction.next,
+                        decoration: const InputDecoration(
+                          labelText: 'العنوان',
+                          hintText: 'الحي، الشارع، معلم قريب',
+                          prefixIcon: Icon(Icons.place_outlined),
+                        ),
+                        validator: (v) =>
+                            Validators.required(v, 'يرجى إدخال عنوان الصيدلية'),
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _pharmacyHours,
+                        textInputAction: TextInputAction.next,
+                        decoration: const InputDecoration(
+                          labelText: 'ساعات الدوام (اختياري)',
+                          hintText: 'مثال: يومياً 9 صباحاً - 10 مساءً',
+                          prefixIcon: Icon(Icons.schedule_rounded),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _license,
+                        textInputAction: TextInputAction.next,
+                        textDirection: TextDirection.ltr,
+                        decoration: const InputDecoration(
+                          labelText: 'رقم ترخيص مزاولة المهنة',
+                          helperText:
+                              'يُستخدم لتوثيق حسابك من قبل إدارة المنصة',
+                          prefixIcon: Icon(Icons.badge_outlined),
+                        ),
+                        validator: (v) =>
+                            Validators.required(v, 'يرجى إدخال رقم الترخيص'),
+                      ),
+                    ],
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: _password,

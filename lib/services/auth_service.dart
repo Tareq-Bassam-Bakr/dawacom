@@ -30,6 +30,10 @@ class AuthService {
     required String phone,
     required String city,
     required UserRole role,
+    String licenseNumber = '',
+    String pharmacyName = '',
+    String pharmacyAddress = '',
+    String pharmacyHours = '',
   }) async {
     registering.value = true;
     try {
@@ -48,6 +52,10 @@ class AuthService {
             phone: phone,
             city: city,
             role: role,
+            licenseNumber: licenseNumber,
+            pharmacyName: pharmacyName,
+            pharmacyAddress: pharmacyAddress,
+            pharmacyHours: pharmacyHours,
           ),
         );
       } catch (_) {

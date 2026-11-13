@@ -23,19 +23,41 @@ class UserService {
   }
 
   Future<void> create(AppUser user) => _col.doc(user.uid).set({
-    ...user.toMap(),
+    ...user.toCreateMap(),
     'createdAt': FieldValue.serverTimestamp(),
   });
+
+  /// صيدليات محافظة معيّنة (الموثّقة أولاً ثم قيد التوثيق).
+  Stream<List<AppUser>> pharmaciesIn(String city) => _col
+      .where('role', isEqualTo: UserRole.pharmacist.value)
+      .where('city', isEqualTo: city)
+      .snapshots()
+      .map((snap) {
+        final list = snap.docs.map(AppUser.fromDoc).toList();
+        list.sort((a, b) {
+          if (a.verified != b.verified) return a.verified ? -1 : 1;
+          return a.pharmacyLabel.compareTo(b.pharmacyLabel);
+        });
+        return list;
+      });
 
   Future<void> updateProfile(
     String uid, {
     required String name,
     required String phone,
     required String city,
+    String? licenseNumber,
+    String? pharmacyName,
+    String? pharmacyAddress,
+    String? pharmacyHours,
   }) => _col.doc(uid).update({
     'name': name.trim(),
     'phone': phone.trim(),
     'city': city,
+    'licenseNumber': ?licenseNumber?.trim(),
+    'pharmacyName': ?pharmacyName?.trim(),
+    'pharmacyAddress': ?pharmacyAddress?.trim(),
+    'pharmacyHours': ?pharmacyHours?.trim(),
     'updatedAt': FieldValue.serverTimestamp(),
   });
 

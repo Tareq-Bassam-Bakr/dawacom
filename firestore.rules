@@ -13,21 +13,46 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == uid;
     }
 
-    function isPharmacist() {
+    function me() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    // صيدلي وثّقه مدير المنصة يدوياً من Firebase Console.
+    function isVerifiedPharmacist() {
       return signedIn()
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'pharmacist';
+        && me().role == 'pharmacist'
+        && me().get('verified', false) == true;
+    }
+
+    // دواء صيدليتي، أو دواء قديم غير مرتبط بأي صيدلية.
+    function managesMedicine(med) {
+      return isVerifiedPharmacist()
+        && med.get('pharmacyId', '') in [request.auth.uid, '', null];
+    }
+
+    function changedOnly(keys) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys);
     }
 
     // ---------- المستخدمون ----------
     match /users/{uid} {
-      // أي مستخدم مسجّل يمكنه قراءة الأسماء (لعرض اسم المتبرع/المحتاج).
+      // أي مستخدم مسجّل يمكنه القراءة (أسماء المتبرعين وبيانات الصيدليات).
       allow read: if signedIn();
+
+      // لا أحد يوثّق نفسه عند التسجيل.
       allow create: if isSelf(uid)
-        && request.resource.data.role in ['user', 'pharmacist'];
-      // لا يمكن تغيير الدور أو البريد بعد الإنشاء.
+        && request.resource.data.role in ['user', 'pharmacist']
+        && request.resource.data.get('verified', false) == false;
+
+      // لا يمكن تغيير الدور أو البريد أو حالة التوثيق،
+      // ولا يتغير رقم الترخيص بعد التوثيق.
       allow update: if isSelf(uid)
         && request.resource.data.role == resource.data.role
-        && request.resource.data.email == resource.data.email;
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.get('verified', false) == resource.data.get('verified', false)
+        && (resource.data.get('verified', false) == false
+            || request.resource.data.get('licenseNumber', '') == resource.data.get('licenseNumber', ''));
+
       allow delete: if false;
     }
 
@@ -35,38 +60,74 @@ service cloud.firestore {
     match /medicines/{id} {
       allow read: if signedIn();
 
-      // المتبرع ينشئ الدواء باسمه وبحالة "قيد التدقيق" فقط.
+      // المتبرع ينشئ الدواء باسمه، بحالة "قيد التدقيق"، لصيدلية مسجّلة.
       allow create: if signedIn()
         && request.resource.data.donorId == request.auth.uid
         && request.resource.data.status == 'pending'
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0
         && request.resource.data.quantity is int
-        && request.resource.data.quantity > 0;
+        && request.resource.data.quantity > 0
+        && request.resource.data.pharmacyId is string
+        && get(/databases/$(database)/documents/users/$(request.resource.data.pharmacyId)).data.role == 'pharmacist';
 
-      // الصيدلاني: يقبل أو يرفض الأدوية قيد التدقيق.
-      // المحتاج: يحجز دواءً متاحاً باسمه.
-      // المتبرع: يعدّل دواءه ما دام قيد التدقيق.
       allow update: if
-        (isPharmacist()
+        // الصيدلي يصحّح بيانات الدواء أثناء المراجعة.
+        (managesMedicine(resource.data)
           && resource.data.status == 'pending'
-          && request.resource.data.status in ['approved', 'rejected'])
+          && request.resource.data.status == 'pending'
+          && changedOnly(['name', 'nameLower', 'category', 'quantity', 'expiryDate',
+                          'expiry', 'batchNumber', 'requiresPrescription']))
         ||
+        // الصيدلي يقبل أو يرفض، وينسب الدواء لصيدليته. الرفض يتطلب سبباً.
+        (managesMedicine(resource.data)
+          && resource.data.status == 'pending'
+          && request.resource.data.status in ['approved', 'rejected']
+          && request.resource.data.pharmacyId == request.auth.uid
+          && (request.resource.data.status == 'approved'
+              || request.resource.data.get('rejectionReason', '').size() > 0))
+        ||
+        // المحتاج يحجز دواءً متاحاً باسمه، ولا يحجز ما تبرع به.
         (signedIn()
           && resource.data.status == 'approved'
           && request.resource.data.status == 'requested'
           && request.resource.data.recipientId == request.auth.uid
-          && resource.data.donorId != request.auth.uid)
+          && resource.data.donorId != request.auth.uid
+          && changedOnly(['status', 'recipientId', 'recipientName', 'recipientPhone',
+                          'hasPrescription', 'requestedAt']))
         ||
+        // الصيدلي يلغي حجزاً ويعيد الدواء متاحاً.
+        (managesMedicine(resource.data)
+          && resource.data.status == 'requested'
+          && request.resource.data.status == 'approved'
+          && request.resource.data.recipientId == null
+          && changedOnly(['status', 'recipientId', 'recipientName', 'recipientPhone',
+                          'hasPrescription', 'requestedAt']))
+        ||
+        // المتبرع يعدّل دواءه ما دام قيد التدقيق، دون تغيير صيدليته.
         (signedIn()
           && resource.data.donorId == request.auth.uid
           && resource.data.status == 'pending'
-          && request.resource.data.status == 'pending');
+          && request.resource.data.status == 'pending'
+          && request.resource.data.get('pharmacyId', '') == resource.data.get('pharmacyId', ''));
 
       // المتبرع يحذف دواءه ما دام قيد التدقيق.
       allow delete: if signedIn()
         && resource.data.donorId == request.auth.uid
         && resource.data.status == 'pending';
+    }
+
+    // ---------- الوصفات الطبية (خاصة) ----------
+    // معرّف المستند: {medicineId}_{recipientId}
+    match /prescriptions/{id} {
+      allow read: if signedIn()
+        && (resource.data.recipientId == request.auth.uid
+            || (isVerifiedPharmacist()
+                && resource.data.pharmacyId in [request.auth.uid, '']));
+      allow create, update: if signedIn()
+        && request.resource.data.recipientId == request.auth.uid
+        && id == request.resource.data.medicineId + '_' + request.auth.uid;
+      allow delete: if false;
     }
   }
 }

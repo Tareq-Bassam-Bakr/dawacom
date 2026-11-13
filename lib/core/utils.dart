@@ -1,5 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../services/auth_service.dart';
 import 'app_theme.dart';
@@ -91,6 +93,16 @@ abstract final class Validators {
         : 'أدخل رقماً سورياً صحيحاً مثل 09xxxxxxxx';
   }
 
+  /// رقم جوال أو هاتف أرضي (للصيدليات).
+  static String? anyPhone(String? v) {
+    if (v == null || v.trim().isEmpty) return 'يرجى إدخال رقم الهاتف';
+    final digits = v.replaceAll(RegExp(r'[\s\-()+]'), '');
+    if (!RegExp(r'^\d{7,15}$').hasMatch(digits)) {
+      return 'أدخل رقم هاتف صحيحاً';
+    }
+    return null;
+  }
+
   static String? quantity(String? v) {
     final n = int.tryParse((v ?? '').trim());
     if (n == null || n < 1) return 'أدخل كمية صحيحة (1 أو أكثر)';
@@ -138,4 +150,21 @@ Future<bool> showConfirmDialog(
     ),
   );
   return result ?? false;
+}
+
+/// فتح تطبيق الاتصال بالرقم، أو نسخه إن تعذّر ذلك.
+Future<void> callPhone(BuildContext context, String phone) async {
+  final p = phone.trim();
+  if (p.isEmpty) return;
+  final uri = Uri(scheme: 'tel', path: p.replaceAll(RegExp(r'[\s\-()]'), ''));
+  var ok = false;
+  try {
+    ok = await launchUrl(uri);
+  } catch (_) {
+    ok = false;
+  }
+  if (!ok && context.mounted) {
+    await Clipboard.setData(ClipboardData(text: p));
+    if (context.mounted) AppSnack.success(context, 'تم نسخ الرقم: $p');
+  }
 }
