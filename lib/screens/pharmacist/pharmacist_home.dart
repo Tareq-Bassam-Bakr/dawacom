@@ -596,7 +596,7 @@ class _Header extends StatelessWidget {
                   ],
                 ),
               ),
-              VerifiedBadge(verified: user.verified),
+              VerifiedBadge(verified: user.verified, onDark: true),
             ],
           ),
           const SizedBox(height: 12),

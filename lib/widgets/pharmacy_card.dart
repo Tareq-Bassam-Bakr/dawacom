@@ -8,8 +8,11 @@ import '../services/user_service.dart';
 
 /// شارة حالة توثيق الصيدلية.
 class VerifiedBadge extends StatelessWidget {
-  const VerifiedBadge({super.key, required this.verified});
+  const VerifiedBadge({super.key, required this.verified, this.onDark = false});
   final bool verified;
+
+  /// فوق خلفية ملوّنة (مثل الشريط الأخضر) تُعرض الشارة بخلفية بيضاء.
+  final bool onDark;
 
   @override
   Widget build(BuildContext context) {
@@ -17,7 +20,7 @@ class VerifiedBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
+        color: onDark ? Colors.white : color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
