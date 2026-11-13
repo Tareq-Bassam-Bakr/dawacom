@@ -8,6 +8,7 @@ import '../../models/app_user.dart';
 import '../../services/auth_service.dart';
 import '../../services/user_service.dart';
 import '../../widgets/common.dart';
+import '../../widgets/connection_banner.dart';
 import '../pharmacist/pharmacist_home.dart';
 import '../user/user_home.dart';
 import 'login_screen.dart';
@@ -32,14 +33,42 @@ class AuthGate extends StatelessWidget {
   }
 }
 
-class _ProfileGate extends StatelessWidget {
+class _ProfileGate extends StatefulWidget {
   const _ProfileGate({required this.user});
   final User user;
 
   @override
+  State<_ProfileGate> createState() => _ProfileGateState();
+}
+
+class _ProfileGateState extends State<_ProfileGate> {
+  // نحتفظ بالمتابعتين طوال عمر الشاشة حتى لا تُعاد مع كل تحديث للحساب.
+  late Stream<AppUser?> _profile;
+  late Stream<bool> _status;
+
+  User get user => widget.user;
+
+  @override
+  void initState() {
+    super.initState();
+    _subscribe();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ProfileGate oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.user.uid != user.uid) _subscribe();
+  }
+
+  void _subscribe() {
+    _profile = UserService.instance.watch(user.uid);
+    _status = UserService.instance.serverStatus(user.uid);
+  }
+
+  @override
   Widget build(BuildContext context) {
     return StreamBuilder<AppUser?>(
-      stream: UserService.instance.watch(user.uid),
+      stream: _profile,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return _GateError(message: AppSnack.messageOf(snapshot.error!));
@@ -58,9 +87,12 @@ class _ProfileGate extends StatelessWidget {
           );
         }
 
-        return appUser.isPharmacist
-            ? PharmacistHome(user: appUser)
-            : UserHome(user: appUser);
+        return ConnectionBanner(
+          online: _status,
+          child: appUser.isPharmacist
+              ? PharmacistHome(user: appUser)
+              : UserHome(user: appUser),
+        );
       },
     );
   }

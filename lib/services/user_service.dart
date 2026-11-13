@@ -17,6 +17,14 @@ class UserService {
       .snapshots()
       .map((d) => d.exists ? AppUser.fromDoc(d) : null);
 
+  /// هل يصل التطبيق إلى خوادم Firestore؟ true عندما تأتي البيانات من الخادم،
+  /// وfalse عندما يعمل التطبيق من النسخة المحفوظة على الجهاز.
+  Stream<bool> serverStatus(String uid) => _col
+      .doc(uid)
+      .snapshots(includeMetadataChanges: true)
+      .map((d) => !d.metadata.isFromCache)
+      .distinct();
+
   Future<AppUser?> get(String uid) async {
     final d = await _col.doc(uid).get();
     return d.exists ? AppUser.fromDoc(d) : null;
