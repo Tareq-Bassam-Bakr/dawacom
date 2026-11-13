@@ -42,10 +42,9 @@
 
 ## لقطات الشاشة
 
-<!-- أضف لقطات الشاشة هنا بعد التشغيل -->
-| تسجيل الدخول | الأدوية المتاحة | إضافة تبرع | تفاصيل الدواء |
-|:---:|:---:|:---:|:---:|
-| <img src="docs/screenshots/login.png" width="180"/> | <img src="docs/screenshots/home.png" width="180"/> | <img src="docs/screenshots/add.png" width="180"/> | <img src="docs/screenshots/details.png" width="180"/> |
+| تسجيل الدخول | إنشاء حساب | استعادة كلمة المرور |
+|:---:|:---:|:---:|
+| <img src="docs/screenshots/login.png" width="220"/> | <img src="docs/screenshots/register.png" width="220"/> | <img src="docs/screenshots/forgot_password.png" width="220"/> |
 
 ## التقنيات
 
