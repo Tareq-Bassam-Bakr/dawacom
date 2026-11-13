@@ -258,25 +258,44 @@ class _PharmacistHomeState extends State<PharmacistHome> {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-          child: Row(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Expanded(
-                child: Text(
-                  'التبرعات القديمة غير المرتبطة بصيدلية',
-                  style: TextStyle(fontSize: 12.5, color: AppColors.textMuted),
+              const Text(
+                'التبرعات القديمة غير المرتبطة بصيدلية تظهر من:',
+                style: TextStyle(fontSize: 12.5, color: AppColors.textMuted),
+              ),
+              const SizedBox(height: 6),
+              SegmentedButton<bool>(
+                showSelectedIcon: false,
+                style: SegmentedButton.styleFrom(
+                  selectedBackgroundColor: AppColors.primary,
+                  selectedForegroundColor: Colors.white,
+                  backgroundColor: Colors.white,
+                  foregroundColor: AppColors.textDark,
+                  side: const BorderSide(color: AppColors.border),
+                  visualDensity: VisualDensity.compact,
+                  textStyle: const TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
                 ),
-              ),
-              ChoiceChip(
-                label: Text('محافظتي (${user.city})'),
-                selected: !_allCities,
-                onSelected: (_) => _toggleAllCities(false),
-              ),
-              const SizedBox(width: 6),
-              ChoiceChip(
-                label: const Text('الكل'),
-                selected: _allCities,
-                onSelected: (_) => _toggleAllCities(true),
+                segments: [
+                  ButtonSegment(
+                    value: false,
+                    icon: const Icon(Icons.location_on_outlined, size: 18),
+                    label: Text('محافظتي (${user.city})'),
+                  ),
+                  const ButtonSegment(
+                    value: true,
+                    icon: Icon(Icons.public_rounded, size: 18),
+                    label: Text('كل المحافظات'),
+                  ),
+                ],
+                selected: {_allCities},
+                onSelectionChanged: (s) => _toggleAllCities(s.first),
               ),
             ],
           ),
